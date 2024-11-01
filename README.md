@@ -47,4 +47,5 @@ npx hardhat run scripts/queryResults.ts --network sepolia
 ```
 
 You will see something like this
+
 ![git](https://github.com/user-attachments/assets/c46bf2a7-6e12-46e1-9205-65b7a7478041)
