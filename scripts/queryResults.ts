@@ -12,6 +12,7 @@ async function main() {
     transport: http()
   });
 
+  // Get winning proposal index and name
   const winningProposalIndex = await publicClient.readContract({
     address: contractAddress as `0x${string}`,
     abi,
@@ -36,7 +37,12 @@ async function main() {
       functionName: 'proposals',
       args: [i]
     });
-    console.log(`${proposals[i]}: ${(proposal as any).voteCount} votes`);
+
+    // Decode the proposal name and extract the vote count
+    const proposalName = hexToString(proposal[0] as `0x${string}`, { size: 32 });
+    const voteCount = proposal[1] as bigint;
+
+    console.log(`${proposalName}: ${voteCount.toString()} votes`);
   }
 }
 
