@@ -7,15 +7,15 @@ import { readFileSync } from "fs";
 import { join } from "path";
 dotenv.config();
 
-task("cast-vote", "Cast a vote for a proposal")
-  .addPositionalParam("proposal", "The proposal index (0 for White Christmas, 1 for Green Christmas)")
+task("cast-vote", "Cast your vote")
+  .addPositionalParam("proposal", "Vote 0 for Muay Thai, 1 for Kickboxing")
   .setAction(async (taskArgs, hre) => {
     try {
-      const artifactPath = join(__dirname, "../artifacts/contracts/Ballot.sol/Ballot.json");
+      const artifactPath = join(__dirname, "../artifacts/contracts/GymVote.sol/GymVote.json");
       const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
       
       const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
-      const account = privateKeyToAccount(privateKey);
+      const account = privateKeyToAccount(privateKey as `0x${string}`);
       const contractAddress = process.env.CONTRACT_ADDRESS as `0x${string}`;
       const proposalIndex = parseInt(taskArgs.proposal);
 

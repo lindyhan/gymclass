@@ -11,7 +11,7 @@ task("give-rights", "Gives right to vote to an address")
   .addPositionalParam("voter", "The address to give voting rights to")
   .setAction(async (taskArgs, hre) => {
     try {
-      const artifactPath = join(__dirname, "../artifacts/contracts/Ballot.sol/Ballot.json");
+      const artifactPath = join(__dirname, "../artifacts/contracts/GymVote.sol/GymVote.json");
       const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
       
       const privateKey = process.env.PRIVATE_KEY as `0x${string}`;

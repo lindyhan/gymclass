@@ -2,7 +2,7 @@ import { createPublicClient, http, hexToString } from "viem";
 import { sepolia } from "viem/chains";
 import * as dotenv from "dotenv";
 dotenv.config();
-import { abi } from "../artifacts/contracts/Ballot.sol/Ballot.json";
+import { abi } from "../artifacts/contracts/GymVote.sol/GymVote.json";
 
 async function main() {
   const contractAddress = process.env.CONTRACT_ADDRESS as string;
