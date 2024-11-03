@@ -19,7 +19,6 @@ async function main() {
   }
 
   const account = privateKeyToAccount(privateKey as `0x${string}`);
-
   const currentNetwork = networks[network.name as keyof typeof networks];
 
   if (!currentNetwork) {

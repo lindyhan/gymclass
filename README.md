@@ -11,4 +11,10 @@ contract on base sepolia: [0x923F2Ea903A7C0FAb500246Dc2ab51f177cb3B0f](https://s
 
 
 assigning voting rights:
+```
+npx hardhat give-rights --network Sepolia 0x
+npx hardhat give-rights --network arbitrumSepolia 0x
+npx hardhat give-rights --network optimismSepolia 0x
+npx hardhat give-rights --network baseSepolia 0x
+```
 ![image](https://github.com/user-attachments/assets/e1f68fb7-d12d-4b37-a156-374b9b17332a)

@@ -1,12 +1,13 @@
 import "@nomicfoundation/hardhat-toolbox-viem";
-import { HardhatUserConfig, task } from "hardhat/config";
-import "./scripts/giveRights";
-import "./scripts/castVote";
+import { HardhatUserConfig } from "hardhat/config";
+import "./tasks/giveRights";
+import "./tasks/castVote";
 import * as dotenv from "dotenv";
 dotenv.config();
 
 const config: HardhatUserConfig = {
   solidity: "0.8.27",
+
   networks: {
     sepolia: {
       url: "https://ethereum-sepolia-rpc.publicnode.com",
@@ -25,6 +26,17 @@ const config: HardhatUserConfig = {
       accounts: [process.env.PRIVATE_KEY || ''],
     },
   },
+
+  etherscan: {
+    apiKey: {
+      arbitrumSepolia: process.env.ARBISCAN_API_KEY || '',
+    }
+  },
+
+  sourcify: {
+    enabled: true
+  },
+
 };
 
 export default config;

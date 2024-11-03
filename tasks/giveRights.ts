@@ -1,39 +1,57 @@
 import { task } from "hardhat/config";
 import { createPublicClient, http, createWalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia } from "viem/chains";
+import { sepolia, arbitrumSepolia, optimismSepolia, baseSepolia } from "viem/chains";
 import * as dotenv from "dotenv";
 import { readFileSync } from "fs";
 import { join } from "path";
+
 dotenv.config();
+
+const networks = {
+  sepolia, arbitrumSepolia, optimismSepolia, baseSepolia,
+} as const;
+
+function getContractAddress(networkName: string): `0x${string}` {
+  if (networkName === 'sepolia') {
+    return process.env.SEPOLIA_CONTRACT_ADDRESS as `0x${string}`;
+  } else {
+    return process.env.L2_CONTRACT_ADDRESS as `0x${string}`;
+  }
+}
 
 task("give-rights", "Gives right to vote to an address")
   .addPositionalParam("voter", "The address to give voting rights to")
   .setAction(async (taskArgs, hre) => {
+    const networkName = hre.network.name as keyof typeof networks;
+    const currentNetwork = networks[networkName];
+    const contractAddress = getContractAddress(networkName);
+
+    if (!contractAddress) {
+      console.error(`\nError: No contract address configured for network ${networkName}`);
+      process.exit(1);
+    }
+    
     try {
       const artifactPath = join(__dirname, "../artifacts/contracts/GymVote.sol/GymVote.json");
       const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
       
       const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
       const account = privateKeyToAccount(privateKey);
-      const contractAddress = process.env.CONTRACT_ADDRESS as `0x${string}`;
-
-      // Create public client for reading state
+      
       const publicClient = createPublicClient({
-        chain: sepolia,
-        transport: http()
+        chain: currentNetwork,
+        transport: http(currentNetwork.rpcUrls.default.http[0]),
       });
 
-      // Check voter's current status
-      const voter = await publicClient.readContract({
+      const voterInfo = await publicClient.readContract({
         address: contractAddress,
         abi: artifact.abi,
         functionName: 'voters',
         args: [taskArgs.voter as `0x${string}`]
       });
 
-      // voter returns a tuple with [weight, voted, delegate, vote]
-      const [weight, hasVoted, delegate] = voter as [bigint, boolean, string];
+      const [weight, hasVoted] = voterInfo as [bigint, boolean, string];
 
       if (hasVoted) {
         console.error("\nError: This voter has already voted");
@@ -45,8 +63,8 @@ task("give-rights", "Gives right to vote to an address")
       }
 
       const walletClient = createWalletClient({
-        chain: sepolia,
-        transport: http(),
+        chain: currentNetwork,
+        transport: http(currentNetwork.rpcUrls.default.http[0]),
         account
       });
 
