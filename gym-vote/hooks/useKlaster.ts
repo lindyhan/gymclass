@@ -4,13 +4,12 @@ import {
   buildRpcInfo,
   initKlaster,
   klasterNodeHost,
-  type SmartAccount
+  loadBiconomyV2Account,
 } from "klaster-sdk";
 import { sepolia } from 'viem/chains';
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { createWalletClient, http } from 'viem';
+import { createWalletClient, custom, http } from 'viem';
 
-const alchemyURL = `https://eth-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`;
 const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
 
@@ -25,8 +24,10 @@ export const useKlaster = (address: string | undefined) => {
 
     // Create the wallet client with the Alchemy URL
     const signer = createWalletClient({
-      transport: http(alchemyURL), // Pass the Alchemy URL here
-    });
+        account: signerAccount,
+        chain: sepolia,
+        transport: http(`https://eth-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`)
+      });
 
     const mcClient = buildMultichainReadonlyClient([
       buildRpcInfo(sepolia.id, "wss://ethereum-sepolia-rpc.publicnode.com"),

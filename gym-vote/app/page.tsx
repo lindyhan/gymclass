@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useConnect } from '@particle-network/connectkit';
-import { ConnectButton } from '@particle-network/connectkit';
+import { ConnectButton, useAccount, useConnect } from '@particle-network/connectkit';
 import { createPublicClient, custom, parseAbi, encodeFunctionData, http } from 'viem';
 import { sepolia } from 'viem/chains';
 import { VotingSection } from '../components/VotingSection';

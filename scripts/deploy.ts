@@ -1,9 +1,14 @@
 import { createPublicClient, http, createWalletClient, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia } from "viem/chains";
+import { network } from "hardhat";
+import { sepolia, arbitrumSepolia, optimismSepolia, baseSepolia} from "viem/chains"
 import * as dotenv from "dotenv";
 dotenv.config();
 import { abi, bytecode } from "../artifacts/contracts/GymVote.sol/GymVote.json";
+
+const networks = {
+  sepolia, arbitrumSepolia, optimismSepolia, baseSepolia,
+} as const;
 
 async function main() {
   const privateKey = process.env.PRIVATE_KEY as string;
@@ -15,14 +20,20 @@ async function main() {
 
   const account = privateKeyToAccount(privateKey as `0x${string}`);
 
+  const currentNetwork = networks[network.name as keyof typeof networks];
+
+  if (!currentNetwork) {
+    throw new Error(`Unsupported network: ${network.name}`);
+  }
+
   const publicClient = createPublicClient({
-    chain: sepolia,
-    transport: http()
+    chain: currentNetwork,
+    transport: http(currentNetwork.rpcUrls.default.http[0]),
   });
 
   const walletClient = createWalletClient({
-    chain: sepolia,
-    transport: http(),
+    chain: currentNetwork,
+    transport: http(currentNetwork.rpcUrls.default.http[0]),
     account
   });
 
@@ -32,7 +43,7 @@ async function main() {
     toHex("Kickboxing", { size: 32 })
   ];
 
-  console.log("Deploying: Gym Class - Muay Thai or Kickboxing? contract...");
+  console.log(`Deploying Gym Class contract to ${currentNetwork.name}...`);
   const hash = await walletClient.deployContract({
     abi,
     bytecode: bytecode as `0x${string}`,
@@ -44,3 +55,5 @@ async function main() {
 }
 
 main().catch(console.error);
+
+//npx hardhat run scripts/deploy.ts --network arbitrumSepolia

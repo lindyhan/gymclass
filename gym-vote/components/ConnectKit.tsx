@@ -1,6 +1,7 @@
 'use client';
 
 import { ConnectKitProvider, createConfig } from '@particle-network/connectkit';
+import { authWalletConnectors } from '@particle-network/connectkit/auth';
 import { evmWalletConnectors } from '@particle-network/connectkit/evm';
 import { sepolia } from '@particle-network/connectkit/chains';
 import { wallet, EntryPosition } from '@particle-network/connectkit/wallet';
@@ -19,28 +20,13 @@ const config = createConfig({
     clientKey,
     appId,
     chains: [sepolia],
-    appearance: {
-        theme: 'light',
-        accentColor: '#07B0F2',
-    },
     walletConnectors: [
         evmWalletConnectors({
-            metadata: {
-                name: 'Gym Vote dApp',
-                description: 'Vote for your preferred gym class',
-                url: 'localhost:3000',
-                icons: ['https://your-website.com/icon.png']
-            },
+            
         })
-    ],
-    plugins: [
-        wallet({
-            visible: true,
-            entryPosition: EntryPosition.BR,
-        }),
     ],
 });
 
-export function ParticleConnectkit({ children }: { children: React.ReactNode }) {
+export const ParticleConnectkit = ({ children }: React.PropsWithChildren) => {
     return <ConnectKitProvider config={config}>{children}</ConnectKitProvider>;
-}
+};
