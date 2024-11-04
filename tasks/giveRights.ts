@@ -12,12 +12,21 @@ const networks = {
   sepolia, arbitrumSepolia, optimismSepolia, baseSepolia,
 } as const;
 
-function getContractAddress(networkName: string): `0x${string}` {
-  if (networkName === 'sepolia') {
-    return process.env.SEPOLIA_CONTRACT_ADDRESS as `0x${string}`;
-  } else {
-    return process.env.L2_CONTRACT_ADDRESS as `0x${string}`;
+// Map each network to its specific contract address from .env
+const CONTRACT_ADDRESSES = {
+  sepolia: process.env.SEPOLIA_CONTRACT_ADDRESS,
+  arbitrumSepolia: process.env.ARBITRUM_SEPOLIA_CONTRACT_ADDRESS,
+  optimismSepolia: process.env.OPTIMISM_SEPOLIA_CONTRACT_ADDRESS,
+  baseSepolia: process.env.BASE_SEPOLIA_CONTRACT_ADDRESS,
+} as const;
+
+// Function to retrieve the contract address based on the network
+function getContractAddress(networkName: keyof typeof CONTRACT_ADDRESSES): `0x${string}` {
+  const address = CONTRACT_ADDRESSES[networkName];
+  if (!address) {
+    throw new Error(`Contract address not configured for network: ${networkName}`);
   }
+  return address as `0x${string}`;
 }
 
 task("give-rights", "Gives right to vote to an address")
@@ -27,23 +36,19 @@ task("give-rights", "Gives right to vote to an address")
     const currentNetwork = networks[networkName];
     const contractAddress = getContractAddress(networkName);
 
-    if (!contractAddress) {
-      console.error(`\nError: No contract address configured for network ${networkName}`);
-      process.exit(1);
-    }
-    
     try {
       const artifactPath = join(__dirname, "../artifacts/contracts/GymVote.sol/GymVote.json");
       const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
-      
+
       const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
       const account = privateKeyToAccount(privateKey);
-      
+
       const publicClient = createPublicClient({
         chain: currentNetwork,
         transport: http(currentNetwork.rpcUrls.default.http[0]),
       });
 
+      // Check if the voter already has rights or has voted
       const voterInfo = await publicClient.readContract({
         address: contractAddress,
         abi: artifact.abi,
@@ -77,13 +82,9 @@ task("give-rights", "Gives right to vote to an address")
       });
 
       console.log("Transaction hash:", hash);
-      
+
     } catch (error) {
-      if (error instanceof Error) {
-        console.error(`\nError: ${error.message}`);
-      } else {
-        console.error("\nAn unexpected error occurred");
-      }
+      console.error(`\nError: ${error instanceof Error ? error.message : "An unexpected error occurred"}`);
       process.exit(1);
     }
 });

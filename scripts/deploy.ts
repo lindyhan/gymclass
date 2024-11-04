@@ -10,20 +10,31 @@ const networks = {
   sepolia, arbitrumSepolia, optimismSepolia, baseSepolia,
 } as const;
 
+function getUSDCAddress(networkName: string): `0x${string}` {
+  switch (networkName) {
+    case 'sepolia':
+      return process.env.SEPOLIA_USDC_ADDRESS as `0x${string}`;
+    case 'arbitrumSepolia':
+      return process.env.ARBITRUM_SEPOLIA_USDC_ADDRESS as `0x${string}`;
+    case 'optimismSepolia':
+      return process.env.OPTIMISM_SEPOLIA_USDC_ADDRESS as `0x${string}`;
+    case 'baseSepolia':
+      return process.env.BASE_SEPOLIA_USDC_ADDRESS as `0x${string}`;
+    default:
+      throw new Error(`Unsupported network: ${networkName}`);
+  }
+}
+
 async function main() {
   const privateKey = process.env.PRIVATE_KEY as string;
-  const usdcAddress = process.env.USDC_ADDRESS as string;
 
-  if (!usdcAddress) {
-    throw new Error("USDC_ADDRESS not found in environment variables");
-  }
-
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
   const currentNetwork = networks[network.name as keyof typeof networks];
-
   if (!currentNetwork) {
     throw new Error(`Unsupported network: ${network.name}`);
   }
+  const usdcAddress = getUSDCAddress(network.name);
+  
+  const account = privateKeyToAccount(privateKey as `0x${string}`);
 
   const publicClient = createPublicClient({
     chain: currentNetwork,

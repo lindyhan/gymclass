@@ -14,11 +14,20 @@ const networks = {
 const USDC_DECIMALS = 6;
 const VOTE_COST = 10n * 10n ** BigInt(USDC_DECIMALS); // 10 USDC (6 decimals)
 
+// Fetch contract addresses from .env
+const CONTRACT_ADDRESSES = {
+  sepolia: process.env.SEPOLIA_CONTRACT_ADDRESS,
+  arbitrumSepolia: process.env.ARBITRUM_SEPOLIA_CONTRACT_ADDRESS,
+  optimismSepolia: process.env.OPTIMISM_SEPOLIA_CONTRACT_ADDRESS,
+  baseSepolia: process.env.BASE_SEPOLIA_CONTRACT_ADDRESS,
+} as const;
+
+// Fetch USDC addresses from .env
 const USDC_ADDRESSES = {
-  sepolia: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-  arbitrumSepolia: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
-  optimismSepolia: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7",
-  baseSepolia: "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  sepolia: process.env.SEPOLIA_USDC_ADDRESS,
+  arbitrumSepolia: process.env.ARBITRUM_SEPOLIA_USDC_ADDRESS,
+  optimismSepolia: process.env.OPTIMISM_SEPOLIA_USDC_ADDRESS,
+  baseSepolia: process.env.BASE_SEPOLIA_USDC_ADDRESS
 } as const;
 
 function formatUSDC(amount: bigint): string {
@@ -28,12 +37,8 @@ function formatUSDC(amount: bigint): string {
   return `${whole}.${paddedFraction} USDC`;
 }
 
-function getContractAddress(networkName: string): `0x${string}` {
-  if (networkName === 'sepolia') {
-    return process.env.SEPOLIA_CONTRACT_ADDRESS as `0x${string}`;
-  } else {
-    return process.env.L2_CONTRACT_ADDRESS as `0x${string}`;
-  }
+function getContractAddress(networkName: keyof typeof CONTRACT_ADDRESSES): `0x${string}` {
+  return CONTRACT_ADDRESSES[networkName] as `0x${string}`;
 }
 
 function getUSDCAddress(networkName: keyof typeof USDC_ADDRESSES): `0x${string}` {
@@ -46,8 +51,8 @@ task("cast-vote", "Cast your vote")
     const networkName = hre.network.name as keyof typeof networks;
     const currentNetwork = networks[networkName];
     const contractAddress = getContractAddress(networkName);
-    const usdcAddress = getUSDCAddress(networkName as keyof typeof USDC_ADDRESSES);
-    
+    const usdcAddress = getUSDCAddress(networkName);
+
     if (!contractAddress) {
       console.error(`\nError: Missing contract address for network ${networkName}`);
       process.exit(1);
@@ -56,7 +61,7 @@ task("cast-vote", "Cast your vote")
     try {
       const artifactPath = join(__dirname, "../artifacts/contracts/GymVote.sol/GymVote.json");
       const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
-      
+
       const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       const proposalIndex = parseInt(taskArgs.proposal);
@@ -71,6 +76,12 @@ task("cast-vote", "Cast your vote")
       const publicClient = createPublicClient({
         chain: currentNetwork,
         transport: http(currentNetwork.rpcUrls.default.http[0])
+      });
+
+      const walletClient = createWalletClient({
+        chain: currentNetwork,
+        transport: http(currentNetwork.rpcUrls.default.http[0]),
+        account
       });
 
       // Check if voting is active
@@ -94,7 +105,7 @@ task("cast-vote", "Cast your vote")
         args: [account.address]
       });
 
-      const [weight, hasVoted] = voter as [bigint, boolean, string];
+      const [weight, hasVoted] = voter as [bigint, boolean];
       console.log("Voter Weight:", weight.toString());
       console.log("Has Voted:", hasVoted);
 
@@ -115,7 +126,7 @@ task("cast-vote", "Cast your vote")
         functionName: 'balanceOf',
         args: [account.address]
       });
-      
+
       const tokenAllowance = await publicClient.readContract({
         address: usdcAddress,
         abi: parseAbi(['function allowance(address owner, address spender) view returns (uint256)']),
@@ -127,12 +138,6 @@ task("cast-vote", "Cast your vote")
         console.error(`\nError: Insufficient USDC balance. Need ${formatUSDC(VOTE_COST)}`);
         process.exit(1);
       }
-
-      const walletClient = createWalletClient({
-        chain: currentNetwork,
-        transport: http(currentNetwork.rpcUrls.default.http[0]),
-        account
-      });
 
       if (tokenAllowance < VOTE_COST) {
         console.log("\nResetting and approving USDC allowance...");
@@ -169,12 +174,12 @@ task("cast-vote", "Cast your vote")
       console.log("Vote cast successfully!");
       console.log("Transaction hash:", hash);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(`\nError: ${error.message}`);
       process.exit(1);
     }
-});
+  });
 
 /*
-npx hardhat cast-vote --network arbitrumSepolia 
+npx hardhat cast-vote --network arbitrumSepolia 1
 */

@@ -29,7 +29,10 @@ const config: HardhatUserConfig = {
 
   etherscan: {
     apiKey: {
-      arbitrumSepolia: process.env.ARBISCAN_API_KEY || '',
+      sepolia: process.env.ETHERSCAN_API_KEY!,
+      arbitrumSepolia: process.env.ARBISCAN_API_KEY!,
+      optimismSepolia: process.env.OPTIMISM_SEPOLIA_USDC_ADDRESS!,
+      baseSepolia: process.env.BASE_SEPOLIA_USDC_ADDRESS!,
     }
   },
 
