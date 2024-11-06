@@ -1,144 +1,72 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { ConnectButton, useAccount, useConnect } from '@particle-network/connectkit';
-import { createPublicClient, custom, parseAbi, encodeFunctionData, http } from 'viem';
-import { sepolia } from 'viem/chains';
-import { VotingSection } from '../components/VotingSection';
-import { ResultSection } from '../components/ResultSection';
-import { useKlaster } from '../hooks/useKlaster';
+import React, { useState } from "react";
+import { ConnectButton, useAccount } from "@particle-network/connectkit";
+import { AAWrapProvider, SendTransactionMode, SendTransactionEvent } from '@particle-network/aa';
+import Web3 from 'web3';
 
-declare global {
-    interface Window {
-        ethereum: any;
-    }
-}
-
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
-
-const GymVotePage = () => {
-  const { address, isConnected } = useAccount();
-  const { connect } = useConnect();  // No 'connectors' needed here
+export default function Home() {
   const [selectedProposal, setSelectedProposal] = useState<number | null>(null);
-  const [votingEnded, setVotingEnded] = useState(false);
-  const [winner, setWinner] = useState<string | null>(null);
-  const { loading, approveUSDC } = useKlaster(address);
-  const [publicClient, setPublicClient] = useState<any>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isCastingVote, setIsCastingVote] = useState<boolean>(false);
+  const { address, isConnected, smartAccount } = useAccount(); // Use the Particle Connect hook
 
-  useEffect(() => {
-    // Setup custom transport without HttpTransport type directly
-    const alchemyURL = `https://eth-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`;
-    if (!process.env.NEXT_PUBLIC_ALCHEMY_API_KEY) {
-      console.error("Alchemy API key is missing. Set it in your .env file.");
+  const handleProposalChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedProposal(parseInt(event.target.value));
+  };
+
+  const handleVoteClick = async () => {
+    if (selectedProposal === null) {
+      setErrorMessage("Please select a proposal before voting.");
       return;
     }
 
-    if (typeof window !== 'undefined' && window.ethereum) {
-      setPublicClient(createPublicClient({
-        chain: sepolia,
-        transport: http()
-      }));
-    } else {
-      console.error("Ethereum object not found, ensure MetaMask or another wallet is installed.");
-    }
-  }, []);
+    setErrorMessage(null);
+    setIsCastingVote(true);
 
-  // Auto-connect to wallet on load if previously connected
-  useEffect(() => {
-    const previouslyConnected = localStorage.getItem('isConnected');
-    if (previouslyConnected === 'true' && !isConnected) {
-      // Attempting to reconnect on load
-      connect({});  // Ensure empty object passed if no parameters required
-    }
-  }, [isConnected, connect]);
-
-  // Store connected status in localStorage
-  useEffect(() => {
-    if (isConnected) {
-      localStorage.setItem('isConnected', 'true');
-    } else {
-      localStorage.removeItem('isConnected');
-    }
-  }, [isConnected]);
-
-  async function castVote(proposalIndex: number) {
     try {
-      const response = await fetch('/api/cast-vote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ proposal: proposalIndex })
-      });
+      // Fetch the contract address from environment variables
+      const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS; // Access the contract address from .env
 
-      if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Error casting vote:", errorText);
-          alert("Failed to cast vote");
-      } else {
-          const resultText = await response.text();
-          console.log("Vote successful:", resultText);
-          alert("Vote cast successfully!");
-      }
-    } catch (error) {
-      console.error("An error occurred:", error);
-      alert("An error occurred while casting vote");
-    }
-  }
-
-  const handleVote = async () => {
-    if (!address || selectedProposal === null || !publicClient) return;
-    
-    try {
-      const approved = await approveUSDC();
-      if (!approved) {
-        throw new Error('USDC approval failed');
+      if (!contractAddress) {
+        throw new Error("Contract address not found in environment variables.");
       }
 
-      const voteData = encodeFunctionData({
-        abi: parseAbi(['function vote(uint256 proposal) external']),
-        functionName: 'vote',
-        args: [BigInt(selectedProposal)]
-      });
+      // Setup the AAWrapProvider for transaction handling
+      const wrapProvider = new AAWrapProvider(smartAccount, SendTransactionMode.UserPaidNative); // or Gasless or UserSelect
+      const web3 = new Web3(wrapProvider);
 
-      const tx = await window.ethereum.request({
-        method: 'eth_sendTransaction',
-        params: [{
-          from: address,
-          to: CONTRACT_ADDRESS,
-          data: voteData
-        }]
-      });
+      // Replace with the correct ABI and method to call your voting function
+      const tx = {
+        to: contractAddress, // Your deployed contract address
+        data: "<transaction-data>", // Add the correct ABI-encoded data for casting a vote
+        value: "0", // Adjust based on whether you need to send native currency or not
+      };
 
-      await publicClient.waitForTransactionReceipt({ hash: tx as `0x${string}` });
+      // If UserSelect mode, handle the fee quotes
+      if (SendTransactionMode.UserSelect) {
+        wrapProvider.once(SendTransactionEvent.Request, (feeQuotesResult) => {
+          wrapProvider.resolveSendTransaction({
+            feeQuote: feeQuotesResult.tokenPaymaster.feeQuote[0],
+            tokenPaymasterAddress: feeQuotesResult.tokenPaymaster.tokenPaymasterAddress,
+          });
+
+          wrapProvider.resolveSendTransaction(feeQuotesResult.verifyingPaymasterNative);
+
+          if (feeQuotesResult.verifyingPaymasterGasless) {
+            wrapProvider.resolveSendTransaction(feeQuotesResult.verifyingPaymasterGasless);
+          }
+        });
+      }
+
+      // Send the transaction
+      await web3.eth.sendTransaction(tx);
+
       alert('Vote cast successfully!');
     } catch (error) {
-      console.error('Error voting:', error);
-      alert('Error casting vote');
-    }
-  };
-
-  const claimRefund = async () => {
-    if (!address || !publicClient) return;
-    
-    try {
-      const refundData = encodeFunctionData({
-        abi: parseAbi(['function claimRefund() external']),
-        functionName: 'claimRefund'
-      });
-
-      const tx = await window.ethereum.request({
-        method: 'eth_sendTransaction',
-        params: [{
-          from: address,
-          to: CONTRACT_ADDRESS,
-          data: refundData
-        }]
-      });
-
-      await publicClient.waitForTransactionReceipt({ hash: tx as `0x${string}` });
-      alert('Refund claimed successfully!');
-    } catch (error) {
-      console.error('Error claiming refund:', error);
-      alert('Error claiming refund');
+      setErrorMessage("Error: " + error.message);
+    } finally {
+      setIsCastingVote(false);
     }
   };
 
@@ -148,31 +76,51 @@ const GymVotePage = () => {
         <h1 className="text-3xl font-bold text-center mb-8">
           Gym Class Vote: Muay Thai vs Kickboxing
         </h1>
-        
+
         <div className="bg-white shadow rounded-lg p-6">
           <ConnectButton />
-          
-          {isConnected && !votingEnded && (
-            <VotingSection
-              address={address || ''}
-              selectedProposal={selectedProposal}
-              setSelectedProposal={setSelectedProposal}
-              onVote={handleVote}
-              loading={loading}
-            />
-          )}
-          
-          {votingEnded && winner && (
-            <ResultSection
-              winner={winner}
-              onClaimRefund={claimRefund}
-              loading={loading}
-            />
+
+          {isConnected ? (
+            <>
+              <div className="mt-6 text-center">
+                <h2 className="text-xl font-semibold">Connected as: {address}</h2>
+              </div>
+
+              <div className="mt-6">
+                <label htmlFor="proposal-select" className="block text-lg font-medium text-gray-700 mb-2">
+                  Muay Thai or Kickboxing:
+                </label>
+                <select
+                  id="proposal-select"
+                  value={selectedProposal ?? ""}
+                  onChange={handleProposalChange}
+                  className="block w-full p-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="" disabled>
+                    Click to select
+                  </option>
+                  <option value="0">Muay Thai</option>
+                  <option value="1">Kickboxing</option>
+                </select>
+              </div>
+
+              <button
+                onClick={handleVoteClick}
+                className="mt-6 w-full p-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+                disabled={isCastingVote}
+              >
+                {isCastingVote ? "Casting vote..." : "Cast Vote"}
+              </button>
+
+              {errorMessage && (
+                <div className="text-red-500 mt-4 text-center">{errorMessage}</div>
+              )}
+            </>
+          ) : (
+            <p className="mt-6 text-center text-gray-500">Connecting your wallet to vote...</p>
           )}
         </div>
       </div>
     </div>
   );
-};
-
-export default GymVotePage;
+}

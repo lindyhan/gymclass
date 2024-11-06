@@ -1,42 +1,56 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.7.0 <0.9.0;
+pragma solidity ^0.8.27;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract GymVote {
+contract GymVote is ReentrancyGuard {
     struct Voter {
-        uint weight;
+        uint256 weight;
         bool voted;
-        address delegate;
-        uint vote;
+        uint256 vote;
         bool hasClaimedRefund;
     }
 
     struct Proposal {
         bytes32 name;
-        uint voteCount; 
+        uint256 voteCount; 
     }
 
-    address public chairperson;
-    IERC20 public usdcToken;
+    address public immutable chairperson;
+    IERC20 public immutable usdcToken;
     uint256 public constant VOTE_COST = 10 * 10**6; // 10 USDC (6 decimals)
     uint256 public constant REFUND_AMOUNT = 2 * 10**6; // 2 USDC
     bool public votingEnded;
-    uint public winningProposalId;
+    uint256 public winningProposalId;
 
     mapping(address => Voter) public voters;
     Proposal[] public proposals;
 
-    event VoteCast(address indexed voter, uint proposalId);
+    event VoteCast(address indexed voter, uint256 proposalId);
     event RefundClaimed(address indexed voter, uint256 amount);
-    event VotingEnded(uint winningProposalId);
+    event VotingEnded(uint256 winningProposalId, bytes32 winningProposalName);
+
+    error VotingHasEnded();
+    error AlreadyVoted();
+    error InvalidProposal();
+    error NotChairperson();
+    error VotingNotEnded();
+    error NoVoteRecorded();
+    error RefundAlreadyClaimed();
+    error WinnersCannotClaimRefund();
+    error TransferFailed();
 
     constructor(bytes32[] memory proposalNames, address _usdcToken) {
+        require(proposalNames.length == 2, "Must have exactly 2 proposals");
+        require(_usdcToken != address(0), "Invalid USDC address");
+        
         chairperson = msg.sender;
         voters[chairperson].weight = 1;
         usdcToken = IERC20(_usdcToken);
 
         for (uint i = 0; i < proposalNames.length; i++) {
+            require(proposalNames[i] != bytes32(0), "Empty proposal name");
             proposals.push(Proposal({
                 name: proposalNames[i],
                 voteCount: 0
@@ -44,57 +58,51 @@ contract GymVote {
         }
     }
 
-    function giveRightToVote(address voter) external {
-        require(msg.sender == chairperson, "Only chairperson can give right to vote.");
-        require(!voters[voter].voted, "The voter already voted.");
-        require(voters[voter].weight == 0);
-        voters[voter].weight = 1;
-    }
-
-    function vote(uint proposal) external {
-        require(!votingEnded, "Voting has ended");
-        Voter storage sender = voters[msg.sender];
-        require(sender.weight != 0, "Has no right to vote");
-        require(!sender.voted, "Already voted.");
+    function vote(uint256 proposal) external nonReentrant {
+        if (votingEnded) revert VotingHasEnded();
+        if (voters[msg.sender].voted) revert AlreadyVoted();
+        if (proposal >= proposals.length) revert InvalidProposal();
         
-        // Transfer USDC from voter to contract
-        require(usdcToken.transferFrom(msg.sender, address(this), VOTE_COST), 
-                "USDC transfer failed");
+        bool success = usdcToken.transferFrom(msg.sender, address(this), VOTE_COST);
+        if (!success) revert TransferFailed();
 
+        Voter storage sender = voters[msg.sender];
         sender.voted = true;
         sender.vote = proposal;
-        proposals[proposal].voteCount += sender.weight;
+        sender.weight = 1;
+        proposals[proposal].voteCount += 1;
         
         emit VoteCast(msg.sender, proposal);
     }
 
     function endVoting() external {
-        require(msg.sender == chairperson, "Only chairperson can end voting");
-        require(!votingEnded, "Voting already ended");
+        if (msg.sender != chairperson) revert NotChairperson();
+        if (votingEnded) revert VotingHasEnded();
         
         winningProposalId = winningProposal();
         votingEnded = true;
         
-        emit VotingEnded(winningProposalId);
+        emit VotingEnded(winningProposalId, proposals[winningProposalId].name);
     }
 
-    function claimRefund() external {
-        require(votingEnded, "Voting has not ended yet");
+    function claimRefund() external nonReentrant {
+        if (!votingEnded) revert VotingNotEnded();
+        
         Voter storage voter = voters[msg.sender];
-        require(voter.voted, "You have not voted");
-        require(!voter.hasClaimedRefund, "Refund already claimed");
-        require(voter.vote != winningProposalId, "Winners cannot claim refund");
+        if (!voter.voted) revert NoVoteRecorded();
+        if (voter.hasClaimedRefund) revert RefundAlreadyClaimed();
+        if (voter.vote == winningProposalId) revert WinnersCannotClaimRefund();
 
         voter.hasClaimedRefund = true;
-        require(usdcToken.transfer(msg.sender, REFUND_AMOUNT), 
-                "Refund transfer failed");
+        bool success = usdcToken.transfer(msg.sender, REFUND_AMOUNT);
+        if (!success) revert TransferFailed();
                 
         emit RefundClaimed(msg.sender, REFUND_AMOUNT);
     }
 
-    function winningProposal() public view returns (uint winningProposal_) {
-        uint winningVoteCount = 0;
-        for (uint p = 0; p < proposals.length; p++) {
+    function winningProposal() public view returns (uint256 winningProposal_) {
+        uint256 winningVoteCount = 0;
+        for (uint256 p = 0; p < proposals.length; p++) {
             if (proposals[p].voteCount > winningVoteCount) {
                 winningVoteCount = proposals[p].voteCount;
                 winningProposal_ = p;
@@ -102,7 +110,15 @@ contract GymVote {
         }
     }
 
-    function winnerName() external view returns (bytes32 winnerName_) {
-        winnerName_ = proposals[winningProposalId].name;
+    function getProposalCount() external view returns (uint256) {
+        return proposals.length;
+    }
+
+    function getProposalName(uint256 index) external view returns (bytes32) {
+        return proposals[index].name;
+    }
+
+    function getProposalVotes(uint256 index) external view returns (uint256) {
+        return proposals[index].voteCount;
     }
 }

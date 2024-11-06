@@ -2,11 +2,16 @@
   "name": "hardhat-project",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
-    "hardhat": "^2.22.15"
+    "@openzeppelin/contracts": "^5.1.0",
+    "hardhat": "^2.22.15",
+    "ts-node": "^10.9.2"
   },
   "dependencies": {
     "@nomiclabs/hardhat-etherscan": "^3.1.8",
-    "@openzeppelin/contracts": "^5.1.0",
-    "dotenv": "^16.4.5"
+    "@nomiclabs/hardhat-waffle": "^2.0.6",
+    "@types/react": "^18.3.12",
+    "dotenv": "^16.4.5",
+    "ethers": "^5.7.2",
+    "react": "^18.3.1"
   }
 }

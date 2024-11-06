@@ -1,69 +1,73 @@
-import { createPublicClient, http, createWalletClient, toHex } from "viem";
+import { createPublicClient, http, createWalletClient, toHex, parseUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { network } from "hardhat";
-import { sepolia, arbitrumSepolia, optimismSepolia, baseSepolia} from "viem/chains"
+import { optimismSepolia } from "viem/chains";
 import * as dotenv from "dotenv";
 dotenv.config();
 import { abi, bytecode } from "../artifacts/contracts/GymVote.sol/GymVote.json";
 
-const networks = {
-  sepolia, arbitrumSepolia, optimismSepolia, baseSepolia,
-} as const;
-
-function getUSDCAddress(networkName: string): `0x${string}` {
-  switch (networkName) {
-    case 'sepolia':
-      return process.env.SEPOLIA_USDC_ADDRESS as `0x${string}`;
-    case 'arbitrumSepolia':
-      return process.env.ARBITRUM_SEPOLIA_USDC_ADDRESS as `0x${string}`;
-    case 'optimismSepolia':
-      return process.env.OPTIMISM_SEPOLIA_USDC_ADDRESS as `0x${string}`;
-    case 'baseSepolia':
-      return process.env.BASE_SEPOLIA_USDC_ADDRESS as `0x${string}`;
-    default:
-      throw new Error(`Unsupported network: ${networkName}`);
-  }
-}
+const USDC_ADDRESS = process.env.USDC_ADDRESS as `0x${string}`;
 
 async function main() {
-  const privateKey = process.env.PRIVATE_KEY as string;
+  try {
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) throw new Error("PRIVATE_KEY not found in .env");
+    if (!USDC_ADDRESS) throw new Error("USDC_ADDRESS not found in .env");
 
-  const currentNetwork = networks[network.name as keyof typeof networks];
-  if (!currentNetwork) {
-    throw new Error(`Unsupported network: ${network.name}`);
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    const publicClient = createPublicClient({
+      chain: optimismSepolia,
+      transport: http(optimismSepolia.rpcUrls.default.http[0]),
+    });
+
+    const walletClient = createWalletClient({
+      chain: optimismSepolia,
+      transport: http(optimismSepolia.rpcUrls.default.http[0]),
+      account
+    });
+
+    // Convert proposal names to bytes32
+    const proposals = [
+      toHex("Muay Thai", { size: 32 }),
+      toHex("Kickboxing", { size: 32 })
+    ];
+
+    console.log("Deploying GymVote contract...");
+    console.log("Network:", optimismSepolia.name);
+
+    const hash = await walletClient.deployContract({
+      abi,
+      bytecode: bytecode as `0x${string}`,
+      args: [proposals, USDC_ADDRESS]
+    });
+
+    console.log("Deployment transaction hash:", hash);
+    
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    console.log("Contract deployed to:", receipt.contractAddress);
+    
+    // Save the contract address to a file for frontend use
+    const fs = require('fs');
+    const deploymentInfo = {
+      contractAddress: receipt.contractAddress,
+      network: optimismSepolia.name,
+      timestamp: new Date().toISOString()
+    };
+    
+    fs.writeFileSync(
+      './deployment-info.json',
+      JSON.stringify(deploymentInfo, null, 2)
+    );
+    
+  } catch (error) {
+    console.error("Deployment failed:", error);
+    process.exit(1);
   }
-  const usdcAddress = getUSDCAddress(network.name);
-  
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
-
-  const publicClient = createPublicClient({
-    chain: currentNetwork,
-    transport: http(currentNetwork.rpcUrls.default.http[0]),
-  });
-
-  const walletClient = createWalletClient({
-    chain: currentNetwork,
-    transport: http(currentNetwork.rpcUrls.default.http[0]),
-    account
-  });
-
-  // Convert proposal names to bytes32
-  const proposals = [
-    toHex("Muay Thai", { size: 32 }),
-    toHex("Kickboxing", { size: 32 })
-  ];
-
-  console.log(`Deploying Gym Class contract to ${currentNetwork.name}...`);
-  const hash = await walletClient.deployContract({
-    abi,
-    bytecode: bytecode as `0x${string}`,
-    args: [proposals, usdcAddress]
-  });
-
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  console.log("Contract deployed to:", receipt.contractAddress);
 }
 
-main().catch(console.error);
+main();
 
-//npx hardhat run scripts/deploy.ts --network arbitrumSepolia
+/* npx hardhat run scripts/deploy.ts --network optimismSepolia
+contract: 0xa103044a19D5af85Fa59799e4960aEbDEb91727F
+2nd: 0x23804876f3524e7e7dde209f610a07994b97465f
+*/

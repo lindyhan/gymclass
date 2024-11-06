@@ -1,103 +1,72 @@
-import { createPublicClient, http, hexToString } from "viem";
-import { sepolia, arbitrumSepolia, optimismSepolia, baseSepolia } from "viem/chains";
+import { createPublicClient, http } from "viem";
+import { optimismSepolia } from "viem/chains";
+import { abi } from "../artifacts/contracts/GymVote.sol/GymVote.json";
 import * as dotenv from "dotenv";
 dotenv.config();
-import { abi } from "../artifacts/contracts/GymVote.sol/GymVote.json";
 
-const networks = {
-  sepolia,
-  arbitrumSepolia,
-  optimismSepolia,
-  baseSepolia,
-} as const;
+const { CONTRACT_ADDRESS } = process.env;
 
-// Function to get the appropriate public client and contract address
-function getClientAndAddress(chainName: keyof typeof networks) {
-  let contractAddress: string;
-
-  switch (chainName) {
-    case 'sepolia':
-      contractAddress = process.env.SEPOLIA_CONTRACT_ADDRESS!;
-      break;
-    case 'arbitrumSepolia':
-      contractAddress = process.env.ARBITRUM_SEPOLIA_CONTRACT_ADDRESS!;
-      break;
-    case 'optimismSepolia':
-      contractAddress = process.env.OPTIMISM_SEPOLIA_CONTRACT_ADDRESS!;
-      break;
-    case 'baseSepolia':
-      contractAddress = process.env.BASE_SEPOLIA_CONTRACT_ADDRESS!;
-      break;
-    default:
-      throw new Error("Unsupported network");
-  }
-
-  const publicClient = createPublicClient({
-    chain: networks[chainName],
-    transport: http(networks[chainName].rpcUrls.default.http[0]),
-  });
-
-  return { publicClient, contractAddress };
+if (!CONTRACT_ADDRESS) {
+  throw new Error("Missing CONTRACT_ADDRESS in environment variables.");
 }
 
-async function main() {
-  const hre = require("hardhat");
-  const chainName = hre.network.name as keyof typeof networks;
-  const { publicClient, contractAddress } = getClientAndAddress(chainName);
+const publicClient = createPublicClient({
+  chain: optimismSepolia,
+  transport: http(`https://opt-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`),
+});
 
-  const voteCounts: bigint[] = [];
-  let totalVotes = BigInt(0);
-
+async function queryResults() {
   try {
-    // Check proposals (assuming we have 2 fixed proposals)
-    const proposalsToCheck = 2; // Update this number if you add more proposals
-    const proposalNames = ["Muay Thai", "Kickboxing"]; // Assuming these are the proposal names
+    // Check voting status
+    const votingEnded: boolean = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: abi,
+      functionName: "votingEnded",
+    }) as boolean;
 
-    for (let i = 0; i < proposalsToCheck; i++) {
-      try {
-        const proposal = await publicClient.readContract({
-          address: contractAddress as `0x${string}`,
-          abi,
-          functionName: 'proposals',
-          args: [i],
-        });
+    const statusMessage = votingEnded ? "Voting has ended" : "Voting is live";
+    console.log("Voting Status:", statusMessage);
 
-        if (Array.isArray(proposal) && proposal.length >= 2) {
-          const voteCount = proposal[1] as bigint;
-          voteCounts.push(voteCount);
-          totalVotes += voteCount;
-          console.log(`${proposalNames[i]}: ${voteCount.toString()} votes`);
-        } else {
-          console.error(`Invalid proposal data for index ${i}`);
-        }
-      } catch (error) {
-        console.error(`Failed to fetch proposal for index ${i}:`, error);
-      }
-    }
+    // Fetch vote counts for the proposals using getProposalVotes
+    const muayThaiVotes: bigint = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: abi,
+      functionName: "getProposalVotes",
+      args: [0], // Assuming 0 corresponds to Muay Thai
+    }) as bigint; // Cast to bigint
+
+    const kickboxingVotes: bigint = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: abi,
+      functionName: "getProposalVotes",
+      args: [1], // Assuming 1 corresponds to Kickboxing
+    }) as bigint; // Cast to bigint
 
     // Determine the winner
-    if (totalVotes === BigInt(0)) {
-      console.log("Winner name: Not Applicable (tie)");
-    } else {
-      const uniqueVoteCounts = new Set(voteCounts);
-      if (uniqueVoteCounts.size === 1) {
-        console.log("Winner name: Not Applicable (tie)");
-      } else {
-        const maxVotes = Math.max(...voteCounts.map(Number));
-        const winners = voteCounts
-          .map((count, index) => (count === BigInt(maxVotes) ? proposalNames[index] : null))
-          .filter(name => name !== null);
+    const winner =
+      muayThaiVotes > kickboxingVotes
+        ? "Muay Thai"
+        : kickboxingVotes > muayThaiVotes
+        ? "Kickboxing"
+        : "It's a tie!";
 
-        console.log("Winner name:", winners.length > 1 ? "Not Applicable (tie)" : winners[0]);
-      }
-    }
+    // Output the results
+    console.log(`Muay Thai: ${muayThaiVotes} votes`);
+    console.log(`Kickboxing: ${kickboxingVotes} votes`);
+    console.log(`Winner name: ${winner}`);
   } catch (error) {
-    console.error("Error during query:", error);
+    console.error("Error querying results:", error);
   }
 }
 
-main().catch(console.error);
+// Execute the query results function
+queryResults();
 
+/*
+npx ts-node scripts/queryResults.ts
 
-
-//npx hardhat run scripts/queryResults.ts --network sepolia
+Terminal output
+Muay Thai: 0 votes
+Kickboxing: 1 votes
+Winner name: Kickboxing
+*/
