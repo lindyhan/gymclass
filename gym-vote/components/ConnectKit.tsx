@@ -1,25 +1,21 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { ConnectKitProvider, createConfig } from '@particle-network/connectkit';
+import { AAWrapProvider, SendTransactionMode } from '@particle-network/aa'
 import { authWalletConnectors } from '@particle-network/connectkit/auth';
 import { aa } from '@particle-network/connectkit/aa';
-import { optimismSepolia, sepolia, arbitrumSepolia, baseSepolia } from '@particle-network/connectkit/chains';
+import { optimismSepolia } from '@particle-network/connectkit/chains';
 import { wallet, EntryPosition } from '@particle-network/connectkit/wallet';
 import { evmWalletConnectors, injected } from '@particle-network/connectkit/evm';
-import { useSmartAccount, useAccount, useAddress } from '@particle-network/connectkit';
+import { useSmartAccount, useAccount } from '@particle-network/connectkit';
 import { AuthType } from "@particle-network/auth-core";
-import { AuthCoreContextProvider, PromptSettingType } from "@particle-network/authkit"; 
 
 const projectId = process.env.NEXT_PUBLIC_PROJECT_ID as string;
 const clientKey = process.env.NEXT_PUBLIC_CLIENT_KEY as string;
 const appId = process.env.NEXT_PUBLIC_APP_ID as string;
 
-if (!projectId || !clientKey || !appId) { 
-    throw new Error('Please configure the Particle project in .env first!');
-}
 
-// Particle Network configuration, targeting only Optimism Sepolia but enabling cross-chain support
 const config = createConfig({
     projectId,
     clientKey,
@@ -32,10 +28,11 @@ const config = createConfig({
             connectorFns: [
                 injected({ target: 'metaMask' }),
                 injected({ target: 'coinbaseWallet' }),
+                injected({ target: 'bitKeep' })
             ]
         }),
         authWalletConnectors({
-            authTypes: ['email', 'google', 'apple'],
+            authTypes: ['email', 'google', 'apple', 'facebook'],
             promptSettingConfig: {
                 promptMasterPasswordSettingWhenLogin: 1,
                 promptPaymentPasswordSettingWhenSign: 1,
@@ -52,89 +49,33 @@ const config = createConfig({
             version: '2.0.0',
         }),
     ],
-    // Optimism Sepolia as the main chain; cross-chain fallback enabled through Particle Network
-    chains: [optimismSepolia, sepolia, arbitrumSepolia, baseSepolia],
+    chains: [optimismSepolia],
 });
 
-// Create a custom hook to use smart account
-const useSmartAccountWrapper = () => {
-    return useSmartAccount();
-};
-
-// Updated sendUserOperation to accept smartAccount as a parameter
-export const sendUserOperation = async (smartAccount: ReturnType<typeof useSmartAccountWrapper>, recipientAddress: string, amountInWei: string) => {
+// Transaction helper function - moved outside the provider
+export const sendTransaction = async (
+    smartAccount: ReturnType<typeof useSmartAccount>,
+    transaction: {
+        to: string;
+        value?: string;
+        data: string;
+    }
+) => {
     if (!smartAccount) {
-        console.error("SmartAccount instance not initialized.");
-        return;
+        throw new Error("Smart Account not initialized");
     }
 
-    try {
-        // Build the User Operation
-        const userOp = await smartAccount.buildUserOperation({
-            tx: {
-                to: recipientAddress,
-                value: amountInWei,
-                data: '0x',
-            },
-        });
+    const userOp = await smartAccount.buildUserOperation({
+        tx: transaction
+    });
 
-        // Send the User Operation
-        const txHash = await smartAccount.sendUserOperation(userOp);
-        console.log('Transaction Hash:', txHash);
-    } catch (error) {
-        console.error("Error in User Operation:", error);
-    }
+    return await smartAccount.sendUserOperation(userOp);
 };
 
-// Usage Example
 export const ParticleConnectkit = ({ children }: React.PropsWithChildren) => {
-    const smartAccount = useSmartAccountWrapper();
-
-    // Automatically fetch the smart account address upon initialization
-    useEffect(() => {
-        if (smartAccount) {
-            smartAccount
-                .getAddress()
-                .then((addr) => console.log('Smart Account Address:', addr))
-                .catch((error) => console.error('Error fetching smart account address:', error));
-        }
-    }, [smartAccount]);
-
-    return <ConnectKitProvider config={config}>{children}</ConnectKitProvider>; // Ensure children are wrapped
-};
-
-export const ParticleAuthkit = ({ children }: React.PropsWithChildren) => {
     return (
-      <AuthCoreContextProvider
-        options={{
-          projectId: process.env.NEXT_PUBLIC_PROJECT_ID!,
-          clientKey: process.env.NEXT_PUBLIC_CLIENT_KEY!,
-          appId: process.env.NEXT_PUBLIC_APP_ID!,
-          authTypes: [AuthType.email, AuthType.google, AuthType.twitter],
-          themeType: "light",
-  
-          chains: [arbitrumSepolia, optimismSepolia, baseSepolia, sepolia],
-  
-          promptSettingConfig: {
-            promptPaymentPasswordSettingWhenSign: PromptSettingType.first,
-            promptMasterPasswordSettingWhenLogin: PromptSettingType.first,
-          },
-  
-          wallet: {
-            themeType: "light",
-  
-            // Set to false to remove the embedded wallet modal
-            visible: false,
-            customStyle: {
-              supportUIModeSwitch: true,
-              supportLanguageSwitch: false,
-            },
-          },
-        }}
-      >
-        {children}
-      </AuthCoreContextProvider>
+        <ConnectKitProvider config={config}>
+            {children}
+        </ConnectKitProvider>
     );
 };
-  
-  

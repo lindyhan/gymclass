@@ -1,6 +1,6 @@
 // gym-vote/app/api/castVote/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { castVote } from '../../../../scripts/castVote'; // Import your castVote script
+import { castVote } from '../../../../scripts/castVote'; 
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       transactionHash: result.transactionHash,
       receipt: result.receipt,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in casting vote:', error);
     return NextResponse.json(
       { message: "Failed to cast vote", error: error.message },
