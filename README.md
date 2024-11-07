@@ -8,7 +8,7 @@ npx hardhat run scripts/deploy.ts --network optimismSepolia
 Terminal output:
 Deploying Gym Class contract to optimismSepolia...
 Contract deployed to:
-[0xd6f07ab686db4b26840f39df2e80a7d4dba28eb4](https://sepolia-optimism.etherscan.io/address/0xd6f07ab686db4b26840f39df2e80a7d4dba28eb4)
+[0x23804876f3524e7e7dde209f610A07994b97465F](https://sepolia-optimism.etherscan.io/address/0x23804876f3524e7e7dde209f610A07994b97465F)
 
 Casting vote:
 
