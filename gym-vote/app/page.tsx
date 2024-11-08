@@ -138,7 +138,7 @@ export default function Home() {
 
         try {
             const { contractAddress, usdcAddress } = getContractAddresses();
-            const amount = parseUnits("0.10", 6); // 10 USDC (6 decimals)
+            const amount = parseUnits("10", 6); // 10 USDC (6 decimals)
 
             // Get EOA provider and signer
             const provider = await primaryWallet.connector.getProvider() as ethers.providers.ExternalProvider;
