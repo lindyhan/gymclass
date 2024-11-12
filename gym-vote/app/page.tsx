@@ -10,7 +10,7 @@ import {
 import { parseUnits } from "viem";
 import { ethers } from 'ethers';
 import { AAWrapProvider, SendTransactionMode } from '@particle-network/aa';
-import Web3 from "web3";
+import Web3 from "web3"; import type { SupportedProviders } from 'web3';
 
 const ERC20_ABI = [
     {
@@ -171,7 +171,7 @@ export default function Home() {
                 // Step 3: Initialize AAWrapProvider for gasless transactions
                 setTxState(prev => ({ ...prev, step: 3 }));
                 const wrapProvider = new AAWrapProvider(smartAccount, SendTransactionMode.Gasless);
-                const web3 = new Web3(wrapProvider as any);
+                const web3 = new Web3(wrapProvider as unknown as SupportedProviders);
                 await web3.eth.sendTransaction({
                     from: smartAccountAddress,
                     to: contractAddress,
@@ -211,15 +211,18 @@ export default function Home() {
                 console.log("Vote cast successfully");
 
                 alert('Vote cast successfully!');
-            } catch (error: any) {
+            } catch (error: unknown) {
                 console.error('Contract interaction error:', error);
-                throw new Error(error?.message || "Contract interaction failed");
+                if (error instanceof Error) {
+                    throw new Error(error.message || "Contract interaction failed");
+                }
+                throw new Error("Contract interaction failed");
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Transaction error:', error);
             setTxState(prev => ({
                 ...prev,
-                error: `Transaction failed: ${error?.message || "Unknown error"}`
+                error: `Transaction failed: ${(error as Error).message || "Unknown error"}`
             }));
         } finally {
             setTxState(prev => ({ ...prev, isProcessing: false, step: 0 }));
