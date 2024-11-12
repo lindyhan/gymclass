@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "ethers": "^5.7.2",
     "@lifi/sdk": "^3.4.1",
     "@particle-network/aa": "^2.0.2",
     "@particle-network/authkit": "^2.0.16",
