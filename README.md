@@ -12,6 +12,11 @@ Contract deployed to:
 
 Casting vote:
 
+
+https://github.com/user-attachments/assets/1f96f599-33bf-4bf9-9d02-98cac92127e9
+
+
+
 Querying results:
 ```
 npx hardhat run scripts/queryResults.ts --network optimismSepolia
