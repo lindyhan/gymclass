@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ConnectKitProvider, createConfig, useWallets, useAccount, useSmartAccount } from '@particle-network/connectkit';
+import { ConnectKitProvider, createConfig } from '@particle-network/connectkit';
 import { authWalletConnectors } from '@particle-network/connectkit/auth';
 import { aa } from '@particle-network/connectkit/aa';
 import { optimismSepolia } from '@particle-network/connectkit/chains';
@@ -49,27 +49,6 @@ export const ParticleConnectkit = ({ children }: React.PropsWithChildren) => {
         ],
         chains: [optimismSepolia],
     });
-
-    const sendTransaction = async (
-        smartAccount: ReturnType<typeof useSmartAccount>,
-        transaction: {
-            to: string;
-            value?: string;
-            data: string;
-        },
-        feeQuote?: any,
-        tokenPaymasterAddress?: string
-    ) => {
-        if (!smartAccount) {
-            throw new Error("Smart Account not initialized");
-        }
-
-        return await smartAccount.sendTransaction(
-            transaction,
-            feeQuote,
-            tokenPaymasterAddress
-        );
-    };
 
     return (
         <ConnectKitProvider config={config}>
