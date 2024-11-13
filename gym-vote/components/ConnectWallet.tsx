@@ -7,7 +7,7 @@ export const ConnectWallet = ({ isConnected }: { isConnected: boolean }) => {
                 <ConnectButton />
             ) : (
                 <div>
-                    <p className="text-gray-600 mb-4">Please connect your wallet to vote</p>
+                    <p className="text-gray-600 mb-4">Connect your wallet or wait for auto-connection...</p>
                     <ConnectButton />
                 </div>
             )}

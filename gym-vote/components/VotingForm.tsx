@@ -47,13 +47,30 @@ const ERC20_ABI: AbiItem[] = [
 
 const VOTING_ABI: AbiItem[] = [
     {
-        constant: false,
-        inputs: [{ name: "proposalId", type: "uint256" }],
-        name: "vote",
-        outputs: [],
-        payable: false,
-        stateMutability: "nonpayable",
-        type: "function"
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "proposal",
+                "type": "uint256"
+            }
+        ],
+        "name": "vote",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "votingEnded",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
     }
 ];
 
@@ -105,39 +122,47 @@ export const VotingForm = ({
             const currentAllowance = await usdcContract.allowance(address, smartAccountAddress);
             
             if (currentAllowance.lt(amount)) {
+                console.log('Approving USDC for voting contract...');
                 const approveTx = await usdcContract.approve(smartAccountAddress, amount);
                 await approveTx.wait();
+                console.log('Approval complete');
             }
 
             setTxState(prev => ({ ...prev, step: 2 }));
             const transferTx = await usdcContract.transfer(smartAccountAddress, amount);
             await transferTx.wait();
+            console.log(`Casting vote for proposal ${selectedProposal}...`);
 
             setTxState(prev => ({ ...prev, step: 3 }));
             const wrapProvider = new AAWrapProvider(smartAccount, SendTransactionMode.Gasless);
             const web3 = new Web3(wrapProvider as unknown as SupportedProviders);
-            
+
+            console.log('Approving USDC spend for voting contract...');
             await executeSmartAccountTransaction(
                 web3,
                 usdcAddress,
                 ERC20_ABI,
-                'transfer', // Specify the method name
+                'approve',
+                100000,
                 contractAddress,
                 amount.toString()
             );
             
             setTxState(prev => ({ ...prev, step: 4 }));
-            
+            console.log(`Attempting to cast vote for proposal: ${selectedProposal}`);
+
             await executeSmartAccountTransaction(
                 web3,
                 contractAddress,
                 VOTING_ABI,
                 'vote', 
+                100000,
                 selectedProposal
             );            
 
             alert('Vote cast successfully!');
         } catch (error: unknown) {
+            console.error('Detailed error:', error);
             setTxState(prev => ({
                 ...prev,
                 error: `Transaction failed: ${(error as Error).message || "Unknown error"}`
@@ -151,7 +176,7 @@ export const VotingForm = ({
     return (
         <button
             onClick={handleVoteClick}
-            disabled={!selectedProposal}
+            disabled={selectedProposal === null}
             className="mt-6 w-full p-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
         >
             {txState.isProcessing ? getStepMessage(txState.step) : "Cast Vote"}
@@ -170,24 +195,31 @@ function getContractAddresses() {
 
 function getStepMessage(step: number) {
     switch (step) {
-        case 1: return "Approving USDC...";
+        case 1: return "Approving USDC to smart account...";
         case 2: return "Transferring USDC to smart account...";
-        case 3: return "Transferring USDC to voting contract...";
+        case 3: return "Approving USDC for voting...";
         case 4: return "Casting vote...";
         default: return "Processing...";
     }
 }
+
+
 
 async function executeSmartAccountTransaction(
     web3: Web3,
     to: string,
     abi: AbiItem[],
     methodName: string,
+    gasLimit: number = 100000,
     ...methodArgs: unknown[]
 ) {
     const contract = new web3.eth.Contract(abi, to);
     const method = contract.methods[methodName](...methodArgs);
-    return method.send({ from: (await web3.eth.getAccounts())[0] });
+    console.log(`Executing ${methodName} with args:`, methodArgs);
+    return method.send({ 
+        from: (await web3.eth.getAccounts())[0],
+        gas: gasLimit.toString()
+     });
 }
 
 export default VotingForm;
