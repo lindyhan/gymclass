@@ -15,6 +15,11 @@ Casting vote:
 
 https://github.com/user-attachments/assets/1f96f599-33bf-4bf9-9d02-98cac92127e9
 
+![image](https://github.com/user-attachments/assets/75fb067a-c1cd-4614-8dfe-6fd70af7a99b)
+![image](https://github.com/user-attachments/assets/9f2ee66b-60eb-4f8d-aef6-d3e8760d4900)
+![image](https://github.com/user-attachments/assets/3119c43f-56c4-4a3c-801a-9247b746cdbb)
+
+
 
 
 Querying results:
