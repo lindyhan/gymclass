@@ -116,23 +116,30 @@ export const VotingForm = ({
             const signer = eoaProvider.getSigner();
             const smartAccountAddress = await smartAccount.getAddress();
 
-            const usdcContract = new ethers.Contract(usdcAddress, ERC20_ABI, signer);
+            const proposalId = BigInt(selectedProposal); // Explicit conversion
+        console.log("Formatted proposal ID:", proposalId);
 
+            // USDC contract instances for EOA and smart wallet
+            const usdcContract = new ethers.Contract(usdcAddress, ERC20_ABI, signer);
+            const votingContract = new ethers.Contract(contractAddress, VOTING_ABI, signer);
+
+            // Step 1: Approve USDC transfer to smart account
             setTxState(prev => ({ ...prev, step: 1 }));
             const currentAllowance = await usdcContract.allowance(address, smartAccountAddress);
             
             if (currentAllowance.lt(amount)) {
-                console.log('Approving USDC for voting contract...');
+                console.log('Approving USDC for smart account...');
                 const approveTx = await usdcContract.approve(smartAccountAddress, amount);
                 await approveTx.wait();
                 console.log('Approval complete');
             }
 
+            // Step 2: Transfer USDC from EOA to smart account
             setTxState(prev => ({ ...prev, step: 2 }));
             const transferTx = await usdcContract.transfer(smartAccountAddress, amount);
             await transferTx.wait();
-            console.log(`Casting vote for proposal ${selectedProposal}...`);
 
+            // Step 3: Setup smart account transactions for USDC approval to voting contract
             setTxState(prev => ({ ...prev, step: 3 }));
             const wrapProvider = new AAWrapProvider(smartAccount, SendTransactionMode.Gasless);
             const web3 = new Web3(wrapProvider as unknown as SupportedProviders);
@@ -147,18 +154,24 @@ export const VotingForm = ({
                 contractAddress,
                 amount.toString()
             );
-            
-            setTxState(prev => ({ ...prev, step: 4 }));
-            console.log(`Attempting to cast vote for proposal: ${selectedProposal}`);
 
+            // Step 4: Transfer USDC from smart account to voting contract
+            setTxState(prev => ({ ...prev, step: 4 }));
             await executeSmartAccountTransaction(
                 web3,
-                contractAddress,
-                VOTING_ABI,
-                'vote', 
+                usdcAddress,
+                ERC20_ABI,
+                'transfer',
                 100000,
-                selectedProposal
-            );            
+                contractAddress,
+                amount.toString()
+            );
+
+            // Step 5: Cast vote directly from EOA to contract
+            setTxState(prev => ({ ...prev, step: 5 }));
+            console.log(`Casting vote for proposal ${selectedProposal} from EOA...`);
+            const voteTx = await votingContract.vote(selectedProposal, {gasLimit: 200000});
+            await voteTx.wait();
 
             alert('Vote cast successfully!');
         } catch (error: unknown) {
@@ -198,12 +211,11 @@ function getStepMessage(step: number) {
         case 1: return "Approving USDC to smart account...";
         case 2: return "Transferring USDC to smart account...";
         case 3: return "Approving USDC for voting...";
-        case 4: return "Casting vote...";
+        case 4: return "Transferring USDC to voting contract...";
+        case 5: return "Casting vote...";
         default: return "Processing...";
     }
 }
-
-
 
 async function executeSmartAccountTransaction(
     web3: Web3,
@@ -219,7 +231,7 @@ async function executeSmartAccountTransaction(
     return method.send({ 
         from: (await web3.eth.getAccounts())[0],
         gas: gasLimit.toString()
-     });
+    });
 }
 
 export default VotingForm;
