@@ -15,6 +15,7 @@ membership fee of all relevant members (those who are taking part in a certain a
 - a smart wallet abstracts away confusion about tokens and gas with management sponsoring gas
 - can also integrate with fjat ramps to extract away the confusion of tokens entirely  users just pay with fiat and backend it is converted to USDC for vote casting
 - easily scalable to any web2 community / group for decision making. examples: office pantry inventory, family gathering party theme, group vacation destination
+- one person, one vote. 100% utility, 0% money game.
 
 ---
 
